@@ -1,0 +1,135 @@
+/{
+    gpio_outputs{
+        compatible = "gpio-leds";
+        // Channel 0 GPIO pin
+        chan0_gpio: chan0_gpio{
+            gpios = < &gpio0 4 GPIO_ACTIVE_HIGH >;
+        };
+        led_output: led_output{
+            gpios = < &gpio0 18 GPIO_ACTIVE_HIGH >;
+        };
+        power_ctrl: power_ctrl{
+            gpios = < &gpio0 17 GPIO_ACTIVE_HIGH >;
+        };
+    };
+
+    buttons{
+        compatible = "gpio-keys";
+        on_button: on_button{
+            gpios = < &gpio0 14 (GPIO_ACTIVE_LOW | GPIO_PULL_UP | GPIO_OPEN_DRAIN) >;
+        };
+    };
+
+	zephyr,user {
+		io-channels = <&adc 0>; // Channel 0	
+	};
+
+    aliases{
+        ems-chan0-gpio = &chan0_gpio;
+        accel-sensor = &mpu6050;
+        power-ctrl = &power_ctrl;
+        led-out = &led_output;
+        on-button = &on_button;
+    };
+};
+
+&i2c0 {
+    status = "okay";
+    pinctrl-0 = < &mpu6050_default >;
+    pinctrl-1 = < &mpu6050_sleep >;
+
+    mpu6050:mpu6050@68 {
+        compatible = "invensense,mpu6050";
+        status = "okay";
+        reg = < 0x68 >;
+        int-gpios = < &gpio0 19 GPIO_ACTIVE_LOW >;
+    };
+};
+
+&adc {
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	channel@1{
+		reg = < 1 >;
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,gain = "ADC_GAIN_1_6";// Internal ref is 0.6, gain of 1/6 means max voltage to be measured at AIN pin is 3.6V
+		zephyr,acquisition-time = < ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 10) >;
+		zephyr,input-positive = < NRF_SAADC_AIN0 >; // Adjust to correct pin
+		zephyr,resolution = < 10 >; // 10 Bit resolution
+	};
+};
+
+&spi1 {
+    status = "disabled";
+};
+
+
+// Disable to avoid pin conflicts
+&uart0 {
+    status = "disabled";
+};
+
+
+&pwm0 {
+    status = "okay";    
+    pinctrl-0 = <&ems_chan1_pins>;
+    pinctrl-1 = <&ems_chan1_pins_lp>;
+    pinctrl-names = "default", "sleep";
+};
+
+&pwm1 {
+    status = "okay";    
+    pinctrl-0 = <&ems_chan23_pins>;
+    pinctrl-1 = <&ems_chan23_pins_lp>;
+    pinctrl-names = "default", "sleep";
+};
+
+// Pin definitions for PWM controller and I2C
+&pinctrl {
+    // PWM pins defined for compatibility purposes, update pin definitions in ems_pwm.c
+    ems_chan1_pins: ems_pins{
+        group1{
+            psels = <NRF_PSEL(PWM_OUT0, 0, 5)>;
+        };
+    };
+
+    ems_chan1_pins_lp: ems_pins_lp{
+        group1{
+            psels = <NRF_PSEL(PWM_OUT0, 0, 5)>;
+        };
+        low-power-enable;
+    };
+
+    ems_chan23_pins: ems_23_pins{
+        group1{
+            psels = <NRF_PSEL(PWM_OUT0, 0, 6)>, <NRF_PSEL(PWM_OUT1, 0, 7)>;
+        };
+    };
+
+    ems_chan23_pins_lp: ems_23_pins_lp{
+        group1{
+            psels = <NRF_PSEL(PWM_OUT0, 0, 6)>, <NRF_PSEL(PWM_OUT1, 0, 7)>;
+        };
+        low-power-enable;
+    };
+
+	mpu6050_default: mpu6050_default {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 20)>,
+				<NRF_PSEL(TWIM_SCL, 0, 21)>;
+		};
+	};
+
+	mpu6050_sleep: mpu6050_sleep {
+		group1 {
+			psels = <NRF_PSEL(TWIM_SDA, 0, 20)>,
+				<NRF_PSEL(TWIM_SCL, 0, 21)>;
+			low-power-enable;
+		};
+	};
+};
+
+
